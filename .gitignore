@@ -1,0 +1,30 @@
+# package directories
+node_modules
+
+# artifacts
+coverage
+
+# other directories/files
+.yarnrc
+.vscode
+.idea
+*.log
+.env
+.git
+.DS_Store
+npm-debug.log
+.npmrc
+dist
+package-lock.json
+/packages/**/dist
+/packages/**/node_modules
+storybook-static
+localhost.crt
+localhost.key
+.https
+.nyc_output
+
+packages/sdk/dev-tool/bundle.js
+
+testcafe/screenshots
+testcafe/reports
