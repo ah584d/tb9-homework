@@ -23,7 +23,7 @@ export class QueueService {
     timeout: number
   ): Promise<string | undefined> {
     return new Promise((res, _err) => {
-        // happy scenario, the queue has some elements to return
+      // happy scenario, the queue has some elements to return
       if (this.queueInstance[queue_name]?.length > 0) {
         const lastElement = this.queueInstance[queue_name].shift();
         console.log(
@@ -31,10 +31,7 @@ export class QueueService {
         );
         res(lastElement);
       } else {
-        this.addClientRequest(queue_name, res);
-        setTimeout(() => {
-          this.resolveTimeout(queue_name, res);
-        }, timeout);
+        this.addClientRequest(queue_name, res, timeout);
       }
     });
   }
@@ -47,6 +44,7 @@ export class QueueService {
       const nextRequest = this.clientQueue[queue_name].shift();
       const lastElement = this.queueInstance[queue_name].shift();
       if (nextRequest) {
+        clearTimeout(nextRequest.timeout);
         nextRequest.resolve(lastElement);
         console.log(
           `===> DEBUG after resolving: ${JSON.stringify(this.queueInstance)}`
@@ -57,10 +55,17 @@ export class QueueService {
 
   private addClientRequest(
     queue_name: string,
-    resolve: (value?: unknown) => void
+    resolve: (value?: unknown) => void,
+    timeout: number
   ): void {
     const timestamp = Date.now();
     const id = uuidv4();
+
+    const timeoutRef = setTimeout(() => {
+      resolve(undefined);
+      this.removeClientRequest(queue_name, id);
+    }, timeout);
+
     if (!this.clientQueue[queue_name]) {
       this.clientQueue[queue_name] = [];
     }
@@ -71,16 +76,11 @@ export class QueueService {
     console.log(`===> DEBUG clientQueue: ${JSON.stringify(this.clientQueue)}`);
   }
 
-  private resolveTimeout(
-    queue_name: string,
-    resolve: (value?: unknown) => void
-  ): void {
-    const index = this.clientQueue[queue_name]?.findIndex(
-      (request: PromiseConstructor) => request.resolve === resolve
-    );
-    if (index !== undefined && index >= 0) {
-      this.clientQueue[queue_name].splice(index, 1);
-      resolve(undefined);
+  private removeClientRequest(queue_name: string, id: string): void {
+    if (this.clientQueue[queue_name]) {
+      this.clientQueue[queue_name] = this.clientQueue[queue_name].filter(
+        (request) => request.id !== id
+      );
     }
   }
 }
