@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 @Injectable()
 export class QueueService {
   private readonly queueInstance = {};
-  private readonly clientQueue: ClientQueue[] = [];
+  private readonly clientQueue = {};
 
   addMessage(queue_name: string, payload: unknown) {
     if (!this.queueInstance[queue_name]) {
@@ -37,20 +37,16 @@ export class QueueService {
   }
 
   private processPendingRequests(queue_name: string): void {
-    while (
-      this.queueInstance[queue_name]?.length > 0 &&
-      this.clientQueue[queue_name]?.length > 0
-    ) {
-      const nextRequest = this.clientQueue[queue_name].shift();
-      const lastElement = this.queueInstance[queue_name].shift();
-      if (nextRequest) {
-        clearTimeout(nextRequest.timeout);
-        nextRequest.resolve(lastElement);
-        console.log(
-          `===> DEBUG after resolving: ${JSON.stringify(this.queueInstance)}`
-        );
-      }
+    // assign the new message to pending promise res if they match by queue name
+
+    const clientQueueByMessage = this.clientQueue[queue_name];
+    if (!clientQueueByMessage || clientQueueByMessage?.length === 0) {
+      return;
     }
+    const olderRequest = clientQueueByMessage.shift();
+    const lastElement = this.queueInstance[queue_name].shift();
+
+    olderRequest.resolve(lastElement);
   }
 
   private addClientRequest(
@@ -58,29 +54,25 @@ export class QueueService {
     resolve: (value?: unknown) => void,
     timeout: number
   ): void {
-    const timestamp = Date.now();
-    const id = uuidv4();
-
-    const timeoutRef = setTimeout(() => {
-      resolve(undefined);
-      this.removeClientRequest(queue_name, id);
-    }, timeout);
-
-    if (!this.clientQueue[queue_name]) {
+    if (
+      !this.clientQueue[queue_name] ||
+      this.clientQueue[queue_name].length === 0
+    ) {
       this.clientQueue[queue_name] = [];
     }
-    this.clientQueue[queue_name].push({ id, timestamp, resolve });
-    this.clientQueue[queue_name].sort(
-      (a: ClientQueue, b: ClientQueue) => b.timestamp - a.timestamp
-    );
-    console.log(`===> DEBUG clientQueue: ${JSON.stringify(this.clientQueue)}`);
-  }
+    this.clientQueue[queue_name].push({ resolve, timeout });
 
-  private removeClientRequest(queue_name: string, id: string): void {
-    if (this.clientQueue[queue_name]) {
-      this.clientQueue[queue_name] = this.clientQueue[queue_name].filter(
-        (request) => request.id !== id
-      );
+    console.log(`====> DEBUG candidate to sleep:  `);
+
+    const ref = setInterval(() => {
+      clearTimeout(ref);
+    }, timeout);
+
+    while (this.clientQueue[queue_name].length === 0 && ref) {
+
     }
+
+    const lastElement = this.queueInstance[queue_name].shift();
+    this.clientQueue[queue_name].resolve(lastElement);
   }
 }

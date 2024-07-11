@@ -22,9 +22,6 @@ export class QueueController {
     @Param("queue_name", new ParseIntPipe()) queue_name: string,
     @Body() payload: unknown
   ): string {
-    console.log(
-      `POST This action returns: ${queue_name} - ${JSON.stringify(payload ?? {})}`
-    );
     this.queueService.addMessage(queue_name, payload);
     return JSON.stringify({ status: `${queue_name} successfully queued` });
   }
